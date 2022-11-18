@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "7000:7000"
+    volumes:
+      - .:/code
+    command:
+      - "uvicorn"
+      - "main:app"
+      - "--port=7000"
+      - "--reload"
+  rabbitmq:
+    image: rabbitmq:3.11.3
