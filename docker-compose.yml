@@ -1,17 +1,34 @@
 version: '3.8'
 
 services:
-  app:
+  rabbitmq:
+    image: rabbitmq:3.11.3-management-alpine
+    ports:
+      - "5675:5672"
+      - "15675:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq
+      - RABBITMQ_DEFAULT_PASS=rabbitmq1234
+  redis:
+    image: redis:7.0.5-alpine
+    restart: always
+    ports:
+      - "6390:6379"
+    command:
+      - "redis-server"
+  celery_app:
+    restart: always
     build: .
     ports:
       - "7000:7000"
     volumes:
       - .:/code
     command:
-      - "uvicorn"
-      - "main:app"
-      - "--host=0.0.0.0"
-      - "--port=7000"
-      - "--reload"
-  rabbitmq:
-    image: rabbitmq:3.11.3
+      - "celery"
+      - "-A"
+      - "app.celery:app"
+      - "worker"
+      - "--loglevel=INFO"
+    depends_on:
+      - rabbitmq
+      - redis
