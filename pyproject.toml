@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "test-python-celery"
+version = "0.0.1"
+description = ""
+authors = ["Mehedee Siddique <mehedees@live.com>"]
+
+[tool.poetry.dependencies]
+python = "3.11.3"
+fastapi = "^0.95.0"
+uvicorn = {version = "^0.22.0", extras = ["standard"]}
+loguru = "^0.6.0"
+celery = "^5.2.7"
+redis = "^4.5.5"
+scylla-driver = "^3.25.5"
+eventlet = "^0.33.1"
+requests = "^2.28.1"
+futurist = "^2.4.1"
+flower = "^1.2.0"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

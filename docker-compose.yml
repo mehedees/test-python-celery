@@ -1,34 +1,110 @@
-version: '3.8'
+version: '3'
 
 services:
-  rabbitmq:
-    image: rabbitmq:3.11.3-management-alpine
-    ports:
-      - "5675:5672"
-      - "15675:15672"
-    environment:
-      - RABBITMQ_DEFAULT_USER=rabbitmq
-      - RABBITMQ_DEFAULT_PASS=rabbitmq1234
-  redis:
-    image: redis:7.0.5-alpine
-    restart: always
-    ports:
-      - "6390:6379"
-    command:
-      - "redis-server"
-  celery_app:
-    restart: always
+  mock_app:
     build: .
     ports:
-      - "7000:7000"
+      - "10034:10034"
+    volumes:
+      - .:/code
+    environment:
+      DEBUG: 'true'
+    command:
+      - "uvicorn"
+      - "app.app:app"
+      - "--reload"
+      - "--workers"
+      - "1"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "10034"
+
+  celery_worker:
+    restart: always
+    build: .
     volumes:
       - .:/code
     command:
       - "celery"
       - "-A"
-      - "app.celery:app"
+      - "app.worker.celery_app"
       - "worker"
+      - "--pool=eventlet"
+      - "--concurrency=500"
       - "--loglevel=INFO"
     depends_on:
       - rabbitmq
       - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.50'
+          memory: 500M
+
+  rabbitmq:
+    image: rabbitmq:3.11.3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=Pass1234
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.50'
+          memory: 500M
+
+  redis:
+    image: redis:7.0.5-alpine
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 100M
+        reservations:
+          cpus: '0.50'
+          memory: 50M
+
+  scylla:
+    image: scylladb/scylla:5.0.5
+    restart: always
+    ports:
+      - "9042:9042"
+    volumes:
+      - ./testscylladata:/var/lib/scylla
+
+  flower:
+    image: mher/flower:1.2
+    build: .
+    command:
+      - "celery"
+      - "-A"
+      - "app.worker.celery_app"
+      - "flower"
+    ports:
+      - 5555:5555
+    environment:
+      - CELERY_BROKER_URL=pyamqp://user:Pass1234@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379
+    depends_on:
+      - celery_worker
+      - redis
+      - rabbitmq
+
+volumes:
+  testscylladata: {}
