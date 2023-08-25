@@ -1,34 +1,25 @@
-from contextlib import asynccontextmanager
-from eventlet import monkey_patch
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from loguru import logger
 
-from .db_client import connect_to_db_async, shutdown_db_async
-from .db_model import TestModel
-from .tasks import test_chain_of_chords_task
+from .tasks import send_newsletter_welcome_email_task
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    monkey_patch()
-    await connect_to_db_async()
-    yield
-    await shutdown_db_async()
+app = FastAPI(
+    debug=True,
+    title="Test Python Celery (Basic)",
+    description="Test basics of Python Celery",
+    openapi_url=f"/openapi.json",
+)
 
 
-app = FastAPI(lifespan=lifespan, debug=True)
-
-
-@app.get(path='/start/{group_size}/{chain_size}')
-async def start_task(group_size: int, chain_size: int):
-    logger.info(f"Starting task with {chain_size} chained groups each containing {group_size} tasks and callback")
-    test_chain_of_chords_task.delay(group_size, chain_size)
-
-    return {'success': 'True'}
-
-
-@app.get(path='/test_request')
-async def test_request(serial: int):
-    logger.info(f"Got request {serial}")
-    TestModel(req_number=serial).update(req_rec=True)
-    return {'success': True}
+@app.post(path='/newsletter/signup')
+async def newsletter_signup(email: str = Body(embed=True)):
+    logger.info(f"Received newsletter signup request from {email}")
+    # Doing some processing bla bla bla
+    logger.info("Initiating welcome email sending task")
+    send_newsletter_welcome_email_task.delay(email)
+    # Return response now, celery will take care of sending the welcome mail
+    return {
+        'success': 'True',
+        'code': 200,
+    }
