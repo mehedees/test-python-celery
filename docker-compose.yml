@@ -4,9 +4,9 @@ services:
   mock_app:
     build: .
     ports:
-      - "10034:10034"
+      - "12345:12345"
     volumes:
-      - .:/code
+      - .:/app
     environment:
       DEBUG: 'true'
     command:
@@ -18,20 +18,26 @@ services:
       - "--host"
       - "0.0.0.0"
       - "--port"
-      - "10034"
+      - "12345"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 100M
+        reservations:
+          cpus: '0.5'
+          memory: 50M
 
   celery_worker:
     restart: always
     build: .
     volumes:
-      - .:/code
+      - .:/app
     command:
       - "celery"
       - "-A"
       - "app.worker.celery_app"
       - "worker"
-      - "--pool=eventlet"
-      - "--concurrency=500"
       - "--loglevel=INFO"
     depends_on:
       - rabbitmq
@@ -40,16 +46,16 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 2G
+          memory: 100M
         reservations:
           cpus: '0.50'
-          memory: 500M
+          memory: 50M
 
   rabbitmq:
     image: rabbitmq:3.11.3-management-alpine
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5672:5672"    # expose amqp port
+      - "15672:15672"  # expose management port
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
@@ -59,10 +65,10 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 1G
+          memory: 200M
         reservations:
           cpus: '0.50'
-          memory: 500M
+          memory: 100M
 
   redis:
     image: redis:7.0.5-alpine
@@ -80,16 +86,8 @@ services:
           cpus: '0.50'
           memory: 50M
 
-  scylla:
-    image: scylladb/scylla:5.0.5
-    restart: always
-    ports:
-      - "9042:9042"
-    volumes:
-      - ./testscylladata:/var/lib/scylla
-
   flower:
-    image: mher/flower:1.2
+    image: mher/flower:2.0
     build: .
     command:
       - "celery"
@@ -97,14 +95,10 @@ services:
       - "app.worker.celery_app"
       - "flower"
     ports:
-      - 5555:5555
+      - "5555:5555"
     environment:
       - CELERY_BROKER_URL=pyamqp://user:Pass1234@rabbitmq:5672//
       - CELERY_RESULT_BACKEND=redis://redis:6379
+      - FLOWER_UNAUTHENTICATED_API=true
     depends_on:
       - celery_worker
-      - redis
-      - rabbitmq
-
-volumes:
-  testscylladata: {}
